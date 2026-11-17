@@ -1,0 +1,142 @@
+---
+title: "README"
+output:
+  github_document:
+    pandoc_args: ["--wrap=none"]
+always_allow_html: true
+---
+# 10.3.3 Exercises
+
+## 1. Distribution of x, y, and z
+```{r}
+library(ggplot2)
+
+ggplot(diamonds, aes(x = x)) +
+  geom_histogram(binwidth = 0.1)
+
+ggplot(diamonds, aes(x = y)) +
+  geom_histogram(binwidth = 0.1)
+
+ggplot(diamonds, aes(x = z)) +
+  geom_histogram(binwidth = 0.1)
+```
+
+The distributions of x and y are fairly similar, while z is generally much smaller. This makes sense because x and y represent the length and width of the diamond, while z represents its depth. Most diamonds are concentrated within a fairly narrow range, but there are also some unusual extreme values, especially for y and z, that may represent data errors or unusual observations.
+
+```{r}
+summary(diamonds[c("x", "y", "z")])
+```
+## 2. Distribution of price
+
+```{r}
+ggplot(diamonds, aes(x = price)) +
+  geom_histogram(binwidth = 1000)
+
+ggplot(diamonds, aes(x = price)) +
+  geom_histogram(binwidth = 100)
+
+ggplot(diamonds, aes(x = price)) +
+  geom_histogram(binwidth = 10)
+```
+The distribution of price is strongly right-skewed. Most diamonds are concentrated at lower prices, with fewer diamonds as price increases. Using a smaller binwidth also reveals many sharp spikes in the distribution that are hidden when using wider bins. This suggests that certain price points occur much more frequently than nearby prices, which was not obvious from the wider histograms.
+
+## 3. Diamonds at 0.99 and 1.00 carat
+```{r}
+sum(diamonds$carat == 0.99)
+sum(diamonds$carat == 1.00)
+```
+
+There are only 23 diamonds that are 0.99 carat, compared with 1,558 diamonds that are exactly 1.00 carat. The large difference is likely because 1.00 carat is a psychologically important cutoff for buyers. Diamonds that are close to one carat may be cut to reach the 1.00-carat mark because they can often be sold for a higher price once they reach that threshold.
+## 4. coord_cartesian() vs. xlim() and ylim()
+
+```{r}
+# Original histogram
+ggplot(diamonds, aes(x = price)) +
+  geom_histogram(binwidth = 500)
+
+# Zoom using coord_cartesian()
+ggplot(diamonds, aes(x = price)) +
+  geom_histogram(binwidth = 500) +
+  coord_cartesian(xlim = c(0, 5000))
+
+# Zoom using xlim()
+ggplot(diamonds, aes(x = price)) +
+  geom_histogram(binwidth = 500) +
+  xlim(0, 5000)
+```
+```{r}
+# Leave binwidth unset
+ggplot(diamonds, aes(x = price)) +
+  geom_histogram() +
+  coord_cartesian(xlim = c(0, 5000))
+
+ggplot(diamonds, aes(x = price)) +
+  geom_histogram() +
+  xlim(0, 5000)
+
+# Zoom so only part of a bar is visible
+ggplot(diamonds, aes(x = price)) +
+  geom_histogram(binwidth = 500) +
+  coord_cartesian(xlim = c(750, 4750))
+
+ggplot(diamonds, aes(x = price)) +
+  geom_histogram(binwidth = 500) +
+  xlim(750, 4750)
+```
+`coord_cartesian()` only zooms in on the plot and does not remove any observations, so the histogram is calculated using the full dataset. In contrast, `xlim()` or `ylim()` remove observations outside the specified limits before the histogram is calculated, which can change the bars and produces a warning about removed rows. If `binwidth` is left unset, the difference is even more noticeable because the automatic bin widths can change when data are removed. If the zoom cuts through the middle of a bar, `coord_cartesian()` simply shows part of that bar, while `xlim()` can change or remove the bar because some of the underlying observations are excluded.
+# 10.4.1 Exercises
+
+## 1. Missing values in histograms and bar charts
+
+```{r}
+library(nycflights13)
+library(dplyr)
+
+# Histogram with missing values
+ggplot(flights, aes(x = dep_delay)) +
+  geom_histogram(binwidth = 10)
+
+# Turn dep_delay into categories, keeping missing values
+flights |>
+  mutate(delay_group = cut(dep_delay, breaks = c(-Inf, 0, 15, Inf))) |>
+  ggplot(aes(x = delay_group)) +
+  geom_bar()
+```
+Missing values in a histogram are removed because a histogram requires a numeric value in order to place each observation into a bin. In a bar chart, missing values can be treated as their own category and shown as an NA bar. The difference occurs because histograms summarize a continuous numerical variable, while bar charts count observations within discrete categories.
+## 2. na.rm = TRUE in mean() and sum()
+
+```{r}
+x <- c(1, 2, 3, NA)
+
+mean(x)
+mean(x, na.rm = TRUE)
+
+sum(x)
+sum(x, na.rm = TRUE)
+```
+`na.rm = TRUE` tells R to remove or ignore missing values before performing the calculation. Without it, `mean()` and `sum()` return `NA` when the data contain a missing value. In this example, ignoring the missing value gives a mean of 2 and a sum of 6.
+## 3. Scheduled departure time and cancelled flights
+
+```{r}
+flights2 <- flights |>
+  mutate(
+    cancelled = is.na(dep_time),
+    sched_hour = sched_dep_time %/% 100,
+    sched_min = sched_dep_time %% 100,
+    sched_dep_time = sched_hour + sched_min / 60
+  )
+
+ggplot(flights2, aes(x = sched_dep_time, color = cancelled)) +
+  geom_freqpoly(binwidth = 1/4) +
+  facet_wrap(~ cancelled, scales = "free_y")
+```
+The frequency plots show that there are many more non-cancelled flights than cancelled flights. Using the default fixed scales makes the cancelled-flight pattern difficult to see because its counts are much smaller. Setting `scales = "free_y"` allows each facet to use its own y-axis scale, making the patterns in both cancelled and non-cancelled flights much easier to compare. The cancelled flights also appear to vary by scheduled departure time rather than being evenly distributed throughout the day.
+```{r}
+ggplot(flights2, aes(x = sched_dep_time, color = cancelled)) +
+  geom_freqpoly(binwidth = 1/4) +
+  facet_wrap(~ cancelled, scales = "fixed")
+
+ggplot(flights2, aes(x = sched_dep_time, color = cancelled)) +
+  geom_freqpoly(binwidth = 1/4) +
+  facet_wrap(~ cancelled, scales = "free")
+```
